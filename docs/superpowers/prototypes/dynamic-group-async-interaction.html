@@ -1,0 +1,797 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>动态分组异步选股交互稿</title>
+  <style>
+    :root {
+      --red: #f72535;
+      --red-dark: #dc1f2d;
+      --red-soft: #fff1f2;
+      --green: #16a03a;
+      --text: #222;
+      --sub: #8f8f8f;
+      --line: #ececec;
+      --bg: #f5f5f5;
+      --panel: #fff;
+      --blue: #4a6fba;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #e9edf3;
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      letter-spacing: 0;
+    }
+
+    .stage {
+      display: grid;
+      grid-template-columns: minmax(430px, 460px) minmax(420px, 1fr);
+      gap: 28px;
+      align-items: start;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 28px;
+    }
+
+    .phone {
+      position: sticky;
+      top: 22px;
+      width: 430px;
+      height: 860px;
+      border: 14px solid #111;
+      border-radius: 44px;
+      overflow: hidden;
+      background: #fff;
+      box-shadow: 0 24px 70px rgba(24, 31, 43, .28);
+    }
+
+    .screen {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .status {
+      height: 48px;
+      background: var(--red);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .island {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 174px;
+      height: 37px;
+      border-radius: 23px;
+      background: #050505;
+    }
+
+    .nav {
+      height: 70px;
+      background: var(--red);
+      color: #fff;
+      display: grid;
+      grid-template-columns: 56px 1fr 56px;
+      align-items: center;
+      padding: 0 16px;
+      font-size: 24px;
+      font-weight: 700;
+    }
+
+    .icon-btn {
+      width: 42px;
+      height: 42px;
+      border: 0;
+      background: transparent;
+      color: inherit;
+      font-size: 30px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .nav-title { text-align: center; }
+    .content {
+      position: absolute;
+      inset: 118px 0 0;
+      overflow: auto;
+      background: #fff;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .home .content { inset: 118px 0 72px; }
+    .market-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr) 78px;
+      gap: 4px;
+      padding: 14px 16px;
+      border-bottom: 8px solid #f4f4f4;
+      font-size: 15px;
+    }
+
+    .market-name { font-weight: 700; }
+    .market-num { color: var(--green); font-size: 21px; font-weight: 700; margin-top: 6px; }
+    .market-delta { color: var(--green); font-size: 14px; margin-top: 3px; }
+    .market-action { display: grid; place-items: center; color: #333; font-size: 14px; }
+
+    .tabs {
+      display: flex;
+      gap: 28px;
+      overflow: hidden;
+      padding: 15px 16px 0;
+      height: 58px;
+      border-bottom: 1px solid var(--line);
+      white-space: nowrap;
+      font-size: 20px;
+      color: #666;
+    }
+    .tab.active { color: #111; font-weight: 700; position: relative; }
+    .tab.active::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      bottom: -10px;
+      transform: translateX(-50%);
+      width: 28px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--red);
+    }
+
+    .table-head, .stock-row {
+      display: grid;
+      grid-template-columns: 1.35fr .85fr .85fr .7fr;
+      align-items: center;
+      column-gap: 8px;
+      padding: 0 16px;
+    }
+    .table-head {
+      height: 54px;
+      color: #777;
+      font-size: 17px;
+      border-bottom: 1px solid var(--line);
+    }
+    .stock-row {
+      min-height: 68px;
+      border-bottom: 1px solid var(--line);
+      font-size: 18px;
+    }
+    .stock-name { font-weight: 600; }
+    .code { color: #9a9a9a; font-size: 14px; margin-top: 3px; font-weight: 400; }
+    .price, .pct { font-size: 22px; font-weight: 700; text-align: right; }
+    .red { color: #e43842; }
+    .green { color: var(--green); }
+    .muted { color: #999; }
+
+    .bottom-tabs {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 72px;
+      background: #fff;
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      place-items: center;
+      font-size: 13px;
+      color: #333;
+    }
+    .bottom-tabs div { text-align: center; }
+    .bottom-tabs b { display: block; font-size: 24px; line-height: 1; margin-bottom: 4px; }
+    .bottom-tabs .active { color: var(--red); font-weight: 700; }
+
+    .drawer-mask {
+      position: absolute;
+      inset: 0;
+      display: none;
+      background: rgba(0, 0, 0, .55);
+      z-index: 20;
+    }
+    .drawer-mask.show { display: block; }
+    .drawer {
+      width: 78%;
+      height: 100%;
+      background: #fff;
+      transform: translateX(-100%);
+      transition: transform .24s ease;
+      box-shadow: 18px 0 40px rgba(0, 0, 0, .18);
+    }
+    .drawer-mask.show .drawer { transform: translateX(0); }
+    .drawer .status { background: #fff; color: #111; }
+    .drawer-hero {
+      margin: 70px 10px 8px;
+      height: 66px;
+      border: 1px solid #f2bdc4;
+      background: #fff2f4;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 18px;
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .drawer-grid { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 8px solid #f5f5f5; }
+    .drawer-grid div { height: 58px; display: flex; align-items: center; padding-left: 20px; font-size: 18px; }
+    .drawer-section { height: 58px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 8px solid #f6f6f6; color: #777; font-size: 18px; }
+    .drawer-tabs { display: grid; grid-template-columns: repeat(3, 1fr); height: 58px; place-items: center; font-size: 17px; border-bottom: 1px solid var(--line); }
+    .drawer-tabs b { position: relative; }
+    .drawer-tabs b::after { content: ""; position: absolute; left: 50%; bottom: -16px; width: 22px; height: 4px; background: var(--red); border-radius: 2px; transform: translateX(-50%); }
+    .group-row { height: 59px; display: flex; align-items: center; justify-content: space-between; padding: 0 18px; border-bottom: 1px solid var(--line); font-size: 18px; }
+    .group-row .badge { border: 1px solid #b8c0d8; color: #6575a4; border-radius: 4px; padding: 0 3px; margin-left: 3px; font-size: 12px; }
+    .drawer-bottom {
+      position: absolute;
+      left: 0;
+      bottom: 0;
+      width: 78%;
+      height: 62px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      background: #fff;
+      border-top: 1px solid var(--line);
+      z-index: 22;
+    }
+    .drawer-bottom button {
+      border: 0;
+      background: #fff;
+      font-size: 18px;
+      color: #333;
+      cursor: pointer;
+    }
+
+    .create .content { padding-bottom: 106px; }
+    .block { padding: 22px 16px; border-bottom: 1px solid var(--line); }
+    .section-title { font-size: 23px; font-weight: 800; margin-bottom: 16px; }
+    .textarea {
+      min-height: 112px;
+      background: #f6f6f6;
+      color: #b8b8b8;
+      line-height: 1.7;
+      font-size: 18px;
+      padding: 14px 16px;
+      border-radius: 4px;
+    }
+    .chip-tabs {
+      display: flex;
+      gap: 28px;
+      height: 50px;
+      align-items: center;
+      overflow: hidden;
+      border-bottom: 1px solid var(--line);
+      padding: 0 16px;
+      white-space: nowrap;
+      font-size: 18px;
+      color: #666;
+    }
+    .chip-list { padding: 16px; }
+    .recent-title { display: flex; align-items: center; justify-content: space-between; font-size: 22px; font-weight: 800; margin-bottom: 14px; }
+    .query-chip, .metric {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 52px;
+      background: #f6f6f6;
+      border-radius: 4px;
+      color: #222;
+      font-size: 18px;
+      text-align: center;
+      padding: 8px 10px;
+      margin-bottom: 12px;
+    }
+    .query-chip.selected {
+      background: #ffe9ec;
+      color: var(--red-dark);
+    }
+    .query-chip.selected::after {
+      content: "✓";
+      position: absolute;
+      right: 0;
+      bottom: 0;
+      width: 22px;
+      height: 22px;
+      color: #fff;
+      background: linear-gradient(135deg, transparent 0 49%, var(--red) 50%);
+      display: flex;
+      align-items: flex-end;
+      justify-content: flex-end;
+      font-size: 14px;
+      padding-right: 2px;
+    }
+    .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+    .metric { height: 58px; margin: 0; }
+    .hot { position: absolute; left: 0; top: 0; background: #ffdde2; color: var(--red); font-size: 11px; padding: 1px 5px; border-radius: 3px 0 3px 0; }
+    .create-bar {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      min-height: 94px;
+      background: #fff;
+      border-top: 1px solid var(--line);
+      display: grid;
+      grid-template-columns: 118px 1fr;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 16px 16px;
+      z-index: 10;
+    }
+    .selected-count { color: #777; font-size: 20px; white-space: nowrap; }
+    .selected-count span { color: var(--red); margin: 0 4px; }
+    .primary {
+      height: 58px;
+      border: 0;
+      border-radius: 5px;
+      background: var(--red);
+      color: #fff;
+      font-size: 22px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .08);
+    }
+    .primary.loading { opacity: .96; }
+    .spinner {
+      display: inline-block;
+      width: 17px;
+      height: 17px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, .42);
+      border-top-color: #fff;
+      vertical-align: -2px;
+      margin-right: 8px;
+      animation: spin .8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .async-hint {
+      grid-column: 2;
+      margin-top: -4px;
+      display: none;
+    }
+    .async-hint.show { display: block; }
+    .hint-text {
+      min-height: 19px;
+      color: #929292;
+      font-size: 13px;
+      margin-bottom: 7px;
+      white-space: nowrap;
+    }
+    .hint-text a { color: var(--blue); text-decoration: none; font-weight: 600; cursor: pointer; }
+    .progress {
+      width: 100%;
+      height: 2px;
+      background: #f0d4d7;
+      overflow: hidden;
+      border-radius: 2px;
+    }
+    .progress i {
+      display: block;
+      width: var(--p, 20%);
+      height: 100%;
+      background: var(--red);
+      transition: width .35s ease;
+    }
+
+    .readonly .query-chip:not(.selected), .readonly .metric { color: #aaa; }
+    .readonly .selected { box-shadow: inset 0 0 0 1px #ffd2d8; }
+
+    .resume-banner {
+      display: none;
+      margin: 12px 16px 0;
+      padding: 10px 12px;
+      border-radius: 6px;
+      background: #fff5f6;
+      border: 1px solid #ffd6db;
+    }
+    .resume-banner.show { display: block; }
+    .resume-line { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: #444; font-size: 14px; }
+    .resume-line button {
+      border: 0;
+      background: var(--red);
+      color: #fff;
+      border-radius: 4px;
+      padding: 6px 10px;
+      white-space: nowrap;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .resume-banner .progress { margin-top: 8px; background: #f4c4ca; }
+    .resume-banner.failed { background: #fff7ef; border-color: #ffd9b8; }
+
+    .toast {
+      position: absolute;
+      left: 20px;
+      right: 20px;
+      top: 54px;
+      height: 46px;
+      transform: translateY(-120px);
+      opacity: 0;
+      border-radius: 7px;
+      background: rgba(38, 38, 38, .95);
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 14px;
+      font-size: 15px;
+      z-index: 60;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, .26);
+      transition: transform .32s ease, opacity .32s ease;
+      cursor: pointer;
+    }
+    .toast.show { transform: translateY(0); opacity: 1; }
+    .toast b { color: #8be08e; margin-right: 4px; }
+    .toast span:last-child { color: #fff; font-weight: 700; }
+
+    .save .content { padding-bottom: 76px; }
+    .condition-card {
+      padding: 20px 16px 24px;
+      border-bottom: 8px solid #f5f5f5;
+    }
+    .condition-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .condition-title { font-size: 23px; font-weight: 800; }
+    .edit { color: #777; font-size: 16px; margin-left: 8px; }
+    .all { color: #9a9a9a; font-size: 17px; }
+    .cond-chip {
+      display: inline-block;
+      background: #f4f4f4;
+      padding: 9px 12px;
+      border-radius: 4px;
+      margin: 0 6px 10px 0;
+      font-size: 16px;
+    }
+    .result-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px 8px;
+      color: #999;
+      font-size: 17px;
+    }
+    .refresh { color: #444; margin-left: 14px; }
+    .batch { background: #fff1f2; color: var(--red); padding: 8px 10px; border-radius: 3px; font-weight: 700; }
+    .save .table-head { grid-template-columns: 1.35fr .85fr .85fr .7fr; }
+    .save-btn {
+      position: absolute;
+      left: 16px;
+      right: 16px;
+      bottom: 14px;
+      height: 58px;
+      border: 0;
+      border-radius: 5px;
+      background: var(--red);
+      color: #fff;
+      font-size: 23px;
+      font-weight: 700;
+    }
+
+    .side {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 18px 50px rgba(31, 43, 58, .12);
+      padding: 22px;
+    }
+    .side h1 { margin: 0 0 8px; font-size: 26px; }
+    .side p { margin: 0 0 18px; color: #666; line-height: 1.6; }
+    .control-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 14px 0 22px; }
+    .control-grid button {
+      min-height: 42px;
+      border: 1px solid #e1e4ea;
+      border-radius: 8px;
+      background: #fff;
+      color: #222;
+      font-size: 14px;
+      cursor: pointer;
+      text-align: left;
+      padding: 9px 11px;
+    }
+    .control-grid button.active {
+      border-color: var(--red);
+      color: var(--red);
+      background: #fff5f6;
+      font-weight: 700;
+    }
+    .note {
+      border-top: 1px solid #eef0f4;
+      padding-top: 16px;
+      margin-top: 16px;
+    }
+    .note h2 { font-size: 18px; margin: 0 0 10px; }
+    .note ul { margin: 0; padding-left: 18px; color: #555; line-height: 1.75; }
+    .flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 12px 0 6px;
+    }
+    .flow span {
+      background: #f3f5f8;
+      border-radius: 999px;
+      padding: 7px 10px;
+      color: #555;
+      font-size: 13px;
+    }
+
+    @media (max-width: 920px) {
+      .stage { grid-template-columns: 1fr; padding: 18px; }
+      .phone { position: relative; top: 0; margin: 0 auto; }
+    }
+  </style>
+</head>
+<body>
+  <main class="stage">
+    <section class="phone" aria-label="高保真手机交互稿">
+      <div class="screen home" id="screen">
+        <div class="toast" id="toast" onclick="showSave()">
+          <span><b>✓</b> 选股完成，共筛出 24 只</span><span>查看结果</span>
+        </div>
+
+        <div class="status">
+          <span id="time">09:14</span><span>5G 65%</span>
+          <div class="island"></div>
+        </div>
+
+        <div class="nav" id="nav"></div>
+        <div class="content" id="content"></div>
+        <div class="bottom-tabs" id="bottomTabs"></div>
+
+        <div class="drawer-mask" id="drawerMask" onclick="closeDrawer(event)">
+          <div class="drawer" onclick="event.stopPropagation()">
+            <div class="status"><span>09:14</span><span>5G 65%</span><div class="island"></div></div>
+            <div class="drawer-hero"><span>♙ 自选股</span><span class="green">-0.12%</span></div>
+            <div class="drawer-grid"><div>▣ 持仓股</div><div>◉ 基金</div></div>
+            <div class="drawer-section"><span>我的关注(7)</span><span>⌄</span></div>
+            <div class="drawer-tabs"><b>全部(24)</b><span>自选分组</span><span>动态分组</span></div>
+            <div id="drawerList"></div>
+          </div>
+          <div class="drawer-bottom">
+            <button onclick="showCreate('idle')">⊕ 新建分组</button>
+            <button>⇅ 管理分组</button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <aside class="side">
+      <h1>动态分组异步选股交互稿</h1>
+      <p>基于当前自选、抽屉、创建页和结果页视觉重建。重点验证慢解析场景下，用户仍能等待、离开、被召回，并在二次进入时恢复任务。</p>
+
+      <div class="flow">
+        <span>自选页</span><span>展开分组抽屉</span><span>新建动态分组</span><span>提交筛选</span><span>三阶段等待</span><span>Toast 召回</span><span>结果保存页</span>
+      </div>
+
+      <div class="control-grid" id="controls">
+        <button onclick="showHome()">1. 自选页</button>
+        <button onclick="openDrawer()">2. 分组抽屉</button>
+        <button onclick="showCreate('idle')">3. 创建页默认</button>
+        <button onclick="showCreate('stageA')">4. 0-3s 按钮 loading</button>
+        <button onclick="showCreate('stageB')">5. 3-10s 进度提示</button>
+        <button onclick="showCreate('stageC')">6. 10s+ 可离开</button>
+        <button onclick="backgroundAndToast()">7. 后台完成 Toast</button>
+        <button onclick="showSave()">8. 查看结果/保存页</button>
+        <button onclick="showCreate('resumeRunning')">9. 二次进入-进行中</button>
+        <button onclick="showCreate('resumeDone')">10. 二次进入-已完成</button>
+        <button onclick="showCreate('failed')">11. 失败状态</button>
+      </div>
+
+      <div class="note">
+        <h2>方案确认</h2>
+        <ul>
+          <li>短耗时仍停留在创建页，只在按钮内显示 loading，保护“创建到保存”的转化。</li>
+          <li>超过 3 秒后才出现 inline 进度和客观解释，不使用全屏 loading。</li>
+          <li>超过 10 秒给“先去看看其他”出口，后台任务完成后用顶部 toast 召回。</li>
+          <li>二次进入创建页用状态条恢复任务，失败不跨页打扰用户。</li>
+          <li>同一用户只允许一个进行中的选股任务，进行中不可新建或覆盖。</li>
+        </ul>
+      </div>
+    </aside>
+  </main>
+
+  <script>
+    const nav = document.getElementById('nav');
+    const content = document.getElementById('content');
+    const bottomTabs = document.getElementById('bottomTabs');
+    const screen = document.getElementById('screen');
+    const drawerMask = document.getElementById('drawerMask');
+    const toast = document.getElementById('toast');
+
+    const stocks = [
+      ['富时 A50 期指主连', 'CNOW', '15660', '+0.21%', '--', 'red'],
+      ['伦敦金现', 'AUUSDO', '4720.800', '+0.37%', '--', 'red'],
+      ['中证全指', '000985', '6532.3442', '-0.02%', '--', 'green'],
+      ['恒生科技指数期货主连', 'HTI999', '5078.00', '-0.49%', '--', 'green'],
+      ['恒生科技指数', 'HS2083', '5102.79', '-0.36%', '--', 'green'],
+      ['港股消费 ETF 鹏华', '159265', '0.895', '-0.22%', '0.22%', 'green'],
+      ['信息发展', '300469', '61.39', '+5.94%', '-0.02%', 'red'],
+      ['快手-W', 'HK1024', '52.950', '+9.40%', '-0.09%', 'red'],
+      ['明月镜片', '301101', '36.82', '+0.77%', '0%', 'red'],
+      ['海兴电力', '603556', '29.13', '-1.75%', '0%', 'green']
+    ];
+
+    const resultStocks = [
+      ['中钨高新', '000657 融', '60.47', '-4.30%', '0%', 'green'],
+      ['中国稀土', '000831 融', '55.25', '-0.61%', '0%', 'green'],
+      ['江特电机', '002176 融', '15.15', '-2.38%', '-0.07%', 'green'],
+      ['融捷股份', '002192 融', '99.10', '-5.71%', '0.06%', 'green'],
+      ['章源钨业', '002378 融', '33.58', '-2.78%', '0%', 'green'],
+      ['天赐材料', '002709 融', '58.41', '-6.99%', '0.02%', 'green'],
+      ['行云科技', '300209', '23.24', '+2.74%', '0.22%', 'red'],
+      ['鹏辉能源', '300438 融', '85.00', '-4.92%', '0.22%', 'green'],
+      ['德方纳米', '300769 融', '78.96', '-2.22%', '0.01%', 'green']
+    ];
+
+    const groups = ['熟悉的港股', '今日备选', '观察列表', '苹果折叠屏', '乌克兰重建', '家电', '人形机器人', 'Etf', '冲刺涨停的股票有哪些', '中俄贸易概念，北交所', '港股旅游板块', '连板的股票，非ST，非新股'];
+
+    function setActive(label) {
+      document.querySelectorAll('#controls button').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.includes(label));
+      });
+    }
+
+    function homeNav() {
+      nav.innerHTML = '<button class="icon-btn" onclick="openDrawer()">☰</button><div class="nav-title">同花顺自选</div><button class="icon-btn">⌕</button>';
+      bottomTabs.innerHTML = '<div><b>♜</b>首页</div><div><b>▱</b>行情</div><div class="active"><b>♟</b>自选</div><div><b>￥</b>交易</div><div><b>▤</b>资讯</div>';
+    }
+
+    function stockRows(list) {
+      return list.map(s => `
+        <div class="stock-row">
+          <div><div class="stock-name">${s[0]}</div><div class="code">${s[1]}</div></div>
+          <div class="price ${s[5]}">${s[2]}</div>
+          <div class="pct ${s[5]}">${s[3]}</div>
+          <div class="pct ${s[4].startsWith('-') ? 'green' : s[4].startsWith('0') || s[4] === '--' ? '' : 'red'}">${s[4]}</div>
+        </div>
+      `).join('');
+    }
+
+    function showHome() {
+      screen.className = 'screen home';
+      homeNav();
+      bottomTabs.style.display = 'grid';
+      content.innerHTML = `
+        <div class="market-strip">
+          <div><div class="market-name">上证指数</div><div class="market-num">4179.95</div><div class="market-delta">-0.14 -0.00%</div></div>
+          <div><div class="market-name">深证成指</div><div class="market-num">15563.80</div><div class="market-delta">-78.09 -0.50%</div></div>
+          <div><div class="market-name">创业板指</div><div class="market-num">3796.13</div><div class="market-delta">-36.93 -0.96%</div></div>
+          <div class="market-action">◎<br>资金</div>
+        </div>
+        <div class="tabs"><span class="tab active">自选股</span><span>持仓股</span><span>熟悉的港股</span><span>今日备选</span><span>观察列表</span></div>
+        <div class="table-head"><span></span><span>最新</span><span>涨幅</span><span>涨速</span></div>
+        ${stockRows(stocks)}
+      `;
+      setActive('自选页');
+    }
+
+    function openDrawer() {
+      showHome();
+      document.getElementById('drawerList').innerHTML = groups.map((g, i) => `
+        <div class="group-row"><span>${g}${i > 7 ? '<span class="badge">动态</span>' : ''}</span><span class="${i % 3 === 1 ? 'red' : i % 3 === 2 ? 'green' : ''}">${i % 3 === 0 ? '--' : i % 3 === 1 ? '+0.' + (i + 1) + '2%' : '-0.' + (i + 2) + '6%'}</span></div>
+      `).join('');
+      drawerMask.classList.add('show');
+      setActive('分组抽屉');
+    }
+
+    function closeDrawer(event) {
+      if (!event || event.target === drawerMask) drawerMask.classList.remove('show');
+    }
+
+    function createContent(mode = 'idle') {
+      const readonly = ['stageA', 'stageB', 'stageC'].includes(mode) ? 'readonly' : '';
+      const showResume = ['resumeRunning', 'resumeDone', 'failed'].includes(mode);
+      const resume = mode === 'resumeRunning'
+        ? `<div class="resume-banner show"><div class="resume-line"><span>上次创建仍在进行中（进度 65%）</span><button onclick="showCreate('stageC')">等待结果</button></div><div class="progress"><i style="--p:65%"></i></div></div>`
+        : mode === 'resumeDone'
+          ? `<div class="resume-banner show"><div class="resume-line"><span>上次创建已完成</span><button onclick="showSave()">查看结果</button></div></div>`
+          : mode === 'failed'
+            ? `<div class="resume-banner show failed"><div class="resume-line"><span>网络繁忙，请稍后重试或调整条件</span><button onclick="showCreate('idle')">重新提交</button></div></div>`
+            : '';
+
+      return `
+        ${showResume ? resume : ''}
+        <div class="${readonly}">
+          <div class="block">
+            <div class="section-title">✦ 一句话选股</div>
+            <div class="textarea">请输入您的选股问句<br>如：融资余额大于0的股票，按照融资余额占流通市值比例的降序排列</div>
+          </div>
+          <div class="chip-tabs"><span class="tab active">最近使用</span><span>基本面</span><span>消息面</span><span>技术面</span><span>选股范围</span></div>
+          <div class="chip-list">
+            <div class="recent-title"><span>最近使用</span><span class="muted">♲</span></div>
+            <div class="query-chip selected">5天前的连续涨停天数=1日</div>
+            <div class="query-chip">5天前的涨停原因类别</div>
+            <div class="query-chip selected">成交额大于30亿，实体涨幅大于0</div>
+            <div class="query-chip">光纤光缆概念股</div>
+            <div class="query-chip">5天前的连续涨停天数等于1</div>
+            <div class="section-title" style="margin-top:22px;">基本面</div>
+            <div style="font-size:18px;margin-bottom:12px;">估值指标</div>
+            <div class="metrics">
+              <div class="metric"><span class="hot">HOT</span>市盈率</div><div class="metric">市净率</div><div class="metric">总股本</div>
+              <div class="metric">总市值</div><div class="metric">流通股本</div><div class="metric">流通市值</div>
+            </div>
+            <div style="font-size:18px;margin:26px 0 12px;">财务指标</div>
+            <div class="metrics">
+              <div class="metric">净利润</div><div class="metric"><span class="hot">HOT</span>净利润增长率</div><div class="metric">营业收入</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function barFor(mode) {
+      const isLoading = ['stageA', 'stageB', 'stageC'].includes(mode);
+      const hint = mode === 'stageB'
+        ? `<div class="async-hint show"><div class="hint-text">当前请求较多，正在为你筛选…</div><div class="progress"><i style="--p:42%"></i></div></div>`
+        : mode === 'stageC'
+          ? `<div class="async-hint show"><div class="hint-text">高峰时段处理较慢，<a onclick="backgroundAndToast()">先去看看其他 →</a></div><div class="progress"><i style="--p:78%"></i></div></div>`
+          : `<div class="async-hint"></div>`;
+      return `
+        <div class="create-bar">
+          <div class="selected-count">⌃ 已选 <span>2</span> 项</div>
+          <button class="primary ${isLoading ? 'loading' : ''}" onclick="${isLoading ? 'showSave()' : "showCreate('stageA')"}">${isLoading ? '<span class="spinner"></span>查看结果(14只)' : '查看结果(14只)'}</button>
+          ${hint}
+        </div>
+      `;
+    }
+
+    function showCreate(mode = 'idle') {
+      closeDrawer();
+      screen.className = 'screen create';
+      nav.innerHTML = '<button class="icon-btn" onclick="showHome()">‹</button><div class="nav-title">新建动态分组</div><span></span>';
+      bottomTabs.style.display = 'none';
+      content.innerHTML = createContent(mode);
+      document.querySelectorAll('.create-bar').forEach(el => el.remove());
+      screen.insertAdjacentHTML('beforeend', barFor(mode));
+      setActive(mode === 'idle' ? '创建页默认' : mode === 'stageA' ? '0-3s' : mode === 'stageB' ? '3-10s' : mode === 'stageC' ? '10s+' : mode === 'resumeRunning' ? '二次进入-进行中' : mode === 'resumeDone' ? '二次进入-已完成' : '失败状态');
+    }
+
+    function backgroundAndToast() {
+      showHome();
+      toast.classList.add('show');
+      setActive('后台完成');
+    }
+
+    function showSave() {
+      closeDrawer();
+      toast.classList.remove('show');
+      screen.className = 'screen save';
+      nav.innerHTML = "<button class=\"icon-btn\" onclick=\"showCreate('idle')\">‹</button><div class=\"nav-title\">结果查看</div><span></span>";
+      bottomTabs.style.display = 'none';
+      content.innerHTML = `
+        <div class="condition-card">
+          <div class="condition-head">
+            <div><span class="condition-title">分组条件</span><span class="edit">♢ 编辑</span></div>
+            <div class="all">全部条件 ›</div>
+          </div>
+          <span class="cond-chip">5天前的连续涨停天数=1日（102）</span>
+          <span class="cond-chip">5天前的成交额&gt;30亿元（143）</span>
+        </div>
+        <div class="result-toolbar">
+          <div>更新于05-09 09:15 <span class="refresh">↻ 刷新</span></div>
+          <div class="batch">▧ 批量加自选</div>
+        </div>
+        <div class="table-head"><span>共 <span class="red">14</span> 只股票</span><span>最新</span><span>涨幅</span><span>涨速</span></div>
+        ${stockRows(resultStocks)}
+      `;
+      document.querySelectorAll('.create-bar').forEach(el => el.remove());
+      screen.insertAdjacentHTML('beforeend', '<button class="save-btn">保存至动态分组</button>');
+      setActive('查看结果');
+    }
+
+    showHome();
+  </script>
+</body>
+</html>
